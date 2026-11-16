@@ -103,12 +103,19 @@
 </main>
 
 <script>
+  // Keep this list in the SAME order always (saved data depends on it)
   const NAMES = ["Badra", "Prem", "Santhosh", "Sai", "Prasad", "Giri"];
   const COLORS = ["#f97316", "#8b5cf6", "#ec4899", "#10b981", "#0ea5e9", "#f59e0b"];
+
+  // Alphabetical order for showing on screen: Badra, Giri, Prasad, Prem, Sai, Santhosh
+  const ORDER = NAMES.map((n, i) => i).sort((a, b) => NAMES[a].localeCompare(NAMES[b]));
+  const SORTED = ORDER.map(i => NAMES[i]);
+
   const $ = id => document.getElementById(id);
   const num = v => parseFloat(v) || 0;
   const fmt = n => "₹" + (Math.round(n * 100) / 100).toLocaleString("en-IN");
   const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const sortNames = list => list.slice().sort((a, b) => a.localeCompare(b));
 
   // which panels are open
   const openPanels = new Set();
@@ -120,8 +127,10 @@
     applyOpen();
   }
 
-  // One card for each person (tap the top to open)
-  $("people").innerHTML = NAMES.map((n, i) => `
+  // One card for each person, in alphabetical order (tap the top to open)
+  $("people").innerHTML = ORDER.map(i => {
+    const n = NAMES[i];
+    return `
     <div class="card" id="card${i}">
       <div class="ph" onclick="tg('pp${i}')">
         <div class="av" style="background:${COLORS[i]}">${n[0]}</div>
@@ -136,8 +145,8 @@
         <button class="g pill" onclick="tg('op${i}')">🔴 Raise objection</button>
         <div class="pn sub" id="op${i}"><input class="t" style="width:100%" id="obj${i}" placeholder="e.g. power bill too high"></div>
       </div>
-    </div>
-  `).join("");
+    </div>`;
+  }).join("");
 
   function fullPay(i) {
     const { share } = compute(current());
@@ -153,7 +162,7 @@
     : `👥 All ${NAMES.length}`;
 
   function drawChips(el, list) {
-    el.innerHTML = NAMES.map(n =>
+    el.innerHTML = SORTED.map(n =>
       `<button class="chip ${list.includes(n) ? "" : "on"}" data-n="${n}">${n}</button>`
     ).join("");
     el.querySelectorAll("button").forEach(b => {
@@ -231,7 +240,8 @@
 
   function flags() {
     const list = [];
-    NAMES.forEach((n, i) => {
+    ORDER.forEach(i => {
+      const n = NAMES[i];
       const t = $("obj" + i).value.trim();
       $("card" + i).classList.toggle("obj", !!t);
       $("flag" + i).textContent = t ? "  🔴 Objection" : "";
@@ -274,17 +284,18 @@
     ];
     items.forEach(([label, amt, left]) => {
       if (num(amt) > 0) {
-        const note = left.length ? " (not for " + left.join(", ") + ")" : "";
+        const note = left.length ? " (not for " + sortNames(left).join(", ") + ")" : "";
         s += `${label}: ${num(amt)}${note}\n`;
       }
     });
     s += `*Total: ${total}*\n\n`;
-    NAMES.forEach((n, i) => {
+    ORDER.forEach(i => {
+      const n = NAMES[i];
       const bal = share[n] - num(d["paid" + i]);
       const status = bal > 0.005 ? "Due " + bal.toFixed(2) : "Paid ✓";
       s += `${n}: share ${share[n].toFixed(2)} - ${status}\n`;
     });
-    NAMES.forEach(n => {
+    SORTED.forEach(n => {
       const o = (d.obj[n] || "").trim();
       if (o) s += `\n🔴 ${n} objects: ${o}`;
     });
@@ -319,14 +330,15 @@
       const d = db[k];
       const { total, share } = compute(d);
       const due = [];
-      NAMES.forEach((n, i) => {
+      ORDER.forEach(i => {
+        const n = NAMES[i];
         const bal = share[n] - num(d["paid" + i]);
         if (bal > 0.005) due.push(`${n} ${fmt(bal)}`);
       });
       const status = due.length
         ? `<span class="due">Pending: ${due.join(", ")}</span>`
         : `<span class="ok">All paid ✓</span>`;
-      const ob = NAMES.filter(n => ((d.obj || {})[n] || "").trim());
+      const ob = SORTED.filter(n => ((d.obj || {})[n] || "").trim());
       const objText = ob.length ? ` <span class="red">🔴 Objection: ${ob.join(", ")}</span>` : "";
       return `<div class="card" style="cursor:pointer" onclick="openMonth('${k}')">
         <div class="hd"><span>${k}</span><span>${fmt(total)}</span></div>
