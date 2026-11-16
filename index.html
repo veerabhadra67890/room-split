@@ -107,17 +107,17 @@
   const NAMES = ["Badra", "Prem", "Santhosh", "Sai", "Prasad", "Giri"];
   const COLORS = ["#f97316", "#8b5cf6", "#ec4899", "#10b981", "#0ea5e9", "#f59e0b"];
 
-  // Alphabetical order for showing on screen: Badra, Giri, Prasad, Prem, Sai, Santhosh
+  // Alphabetical order for showing on screen
   const ORDER = NAMES.map((n, i) => i).sort((a, b) => NAMES[a].localeCompare(NAMES[b]));
   const SORTED = ORDER.map(i => NAMES[i]);
 
   const $ = id => document.getElementById(id);
   const num = v => parseFloat(v) || 0;
-  const fmt = n => "₹" + (Math.round(n * 100) / 100).toLocaleString("en-IN");
+  const R = Math.round;                                        // NEW: round to whole rupee
+  const fmt = n => "₹" + R(n).toLocaleString("en-IN");         // NEW: no decimals shown
   const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const sortNames = list => list.slice().sort((a, b) => a.localeCompare(b));
 
-  // which panels are open
   const openPanels = new Set();
   function applyOpen() {
     document.querySelectorAll(".pn").forEach(p => p.classList.toggle("open", openPanels.has(p.id)));
@@ -127,7 +127,6 @@
     applyOpen();
   }
 
-  // One card for each person, in alphabetical order (tap the top to open)
   $("people").innerHTML = ORDER.map(i => {
     const n = NAMES[i];
     return `
@@ -150,7 +149,7 @@
 
   function fullPay(i) {
     const { share } = compute(current());
-    $("paid" + i).value = Math.round(share[NAMES[i]] * 100) / 100;
+    $("paid" + i).value = share[NAMES[i]];          // share is already a whole number
     calc(); save();
   }
 
@@ -235,6 +234,7 @@
       const paying = NAMES.filter(n => !left.includes(n));
       paying.forEach(n => share[n] += amt / paying.length);
     });
+    NAMES.forEach(n => share[n] = Math.ceil(share[n] - 0.0001));   // always round UP to next rupee
     return { total, share };
   }
 
@@ -258,13 +258,13 @@
     let paidAll = 0, dueAll = 0;
     NAMES.forEach((n, i) => {
       const paid = num($("paid" + i).value);
-      const bal = share[n] - paid;
+      const bal = R(share[n] - paid);                // whole number balance
       paidAll += paid;
-      if (bal > 0.005) dueAll += bal;
+      if (bal > 0) dueAll += bal;
       $("share" + i).textContent = fmt(share[n]);
       const b = $("bal" + i);
-      b.textContent = bal > 0.005 ? "Due " + fmt(bal) : bal < -0.005 ? "Extra " + fmt(-bal) : "Paid ✓";
-      b.className = "st " + (bal > 0.005 ? "due" : "ok");
+      b.textContent = bal > 0 ? "Due " + fmt(bal) : bal < 0 ? "Extra " + fmt(-bal) : "Paid ✓";
+      b.className = "st " + (bal > 0 ? "due" : "ok");
     });
     $("hdTotal").textContent = fmt(total);
     $("hdPaid").textContent = fmt(paidAll);
@@ -285,15 +285,15 @@
     items.forEach(([label, amt, left]) => {
       if (num(amt) > 0) {
         const note = left.length ? " (not for " + sortNames(left).join(", ") + ")" : "";
-        s += `${label}: ${num(amt)}${note}\n`;
+        s += `${label}: ${R(num(amt))}${note}\n`;
       }
     });
-    s += `*Total: ${total}*\n\n`;
+    s += `*Total: ${R(total)}*\n\n`;
     ORDER.forEach(i => {
       const n = NAMES[i];
-      const bal = share[n] - num(d["paid" + i]);
-      const status = bal > 0.005 ? "Due " + bal.toFixed(2) : "Paid ✓";
-      s += `${n}: share ${share[n].toFixed(2)} - ${status}\n`;
+      const bal = R(share[n] - num(d["paid" + i]));
+      const status = bal > 0 ? "Due " + bal : "Paid ✓";
+      s += `${n}: share ${share[n]} - ${status}\n`;
     });
     SORTED.forEach(n => {
       const o = (d.obj[n] || "").trim();
@@ -332,8 +332,8 @@
       const due = [];
       ORDER.forEach(i => {
         const n = NAMES[i];
-        const bal = share[n] - num(d["paid" + i]);
-        if (bal > 0.005) due.push(`${n} ${fmt(bal)}`);
+        const bal = R(share[n] - num(d["paid" + i]));
+        if (bal > 0) due.push(`${n} ${fmt(bal)}`);
       });
       const status = due.length
         ? `<span class="due">Pending: ${due.join(", ")}</span>`
