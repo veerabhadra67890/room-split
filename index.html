@@ -1,282 +1,383 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Room Split</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#14b8a6">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <style>
-    .chip { border-radius: 12px; border: 1px solid #888; background: #d9f2ee; margin: 2px; padding: 2px 8px; cursor: pointer; }
-    .chip.off { text-decoration: line-through; background: #eee; color: #999; }
-    .due { color: red; }
-    .ok { color: green; }
-    .person { border: 1px solid #ccc; border-radius: 8px; padding: 8px; margin: 8px 0; }
-    .person.obj { border: 2px solid red; }
-    .red { color: red; }
+    :root{--bg:#eef7fb;--card:#fff;--tx:#17212b;--mu:#667585;--bd:#dbe7ef;--ac:#0d9488;--ok:#15803d;--okb:#dcfce7;--bad:#dc2626;--badb:#fee2e2;--in:#f3f8fb;--sh:0 2px 10px rgba(30,80,120,.08)}
+    @media (prefers-color-scheme:dark){:root{--bg:#0f1720;--card:#18232e;--tx:#eaf1f7;--mu:#97a8b8;--bd:#273645;--ac:#2dd4bf;--ok:#4ade80;--okb:#143323;--bad:#f87171;--badb:#3b1a1a;--in:#101b25;--sh:none}}
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .top{background:linear-gradient(135deg,#14b8a6,#3b82f6);color:#fff;padding:calc(16px + env(safe-area-inset-top,0px)) 16px 18px;border-radius:0 0 22px 22px}
+    .top-in,main{max-width:520px;margin:0 auto}
+    .top h1{font-size:22px;margin:0}
+    .top .r{display:flex;justify-content:space-between;align-items:center;gap:8px}
+    .top input[type=month]{background:rgba(255,255,255,.95);color:#17212b;border:0;border-radius:10px;padding:7px 10px;font-size:15px;text-align:left;width:auto}
+    .stats{display:flex;gap:8px;margin-top:14px}
+    .stat{flex:1;background:rgba(255,255,255,.2);border-radius:12px;padding:8px 10px}
+    .stat small{display:block;font-size:12px;opacity:.9}.stat b{font-size:17px}
+    main{padding:14px 16px calc(24px + env(safe-area-inset-bottom,0px))}
+    h2{font-size:14px;color:var(--ac);margin:20px 0 8px;font-weight:700}
+    .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:12px;margin-bottom:10px;box-shadow:var(--sh)}
+    .row{display:flex;gap:8px;align-items:center;margin:6px 0}
+    .row label{flex:1;font-size:15px;font-weight:500}
+    .em{font-size:20px;width:26px;text-align:center}
+    input{background:var(--in);color:var(--tx);border:1px solid var(--bd);border-radius:10px;padding:9px;font-size:16px;width:96px;text-align:right}
+    input.t{text-align:left;flex:1;width:auto;min-width:0}
+    button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:9px 14px;font-size:14px;font-weight:600;cursor:pointer}
+    button.big{width:100%;padding:12px;font-size:15px}
+    button.g{background:transparent;color:var(--mu);border:1px solid var(--bd)}
+    button.pill{background:var(--in);color:var(--ac);border:1px solid var(--bd);border-radius:999px;padding:5px 10px;font-size:12px}
+    button.x{background:transparent;color:var(--mu);padding:4px 8px;font-size:16px}
+    .pn{display:none}.pn.open{display:block}
+    .chips.open{display:flex}
+    .chips{flex-wrap:wrap;gap:6px;margin:2px 0 10px 34px}
+    button.chip{padding:5px 11px;border-radius:999px;font-size:13px;font-weight:500;background:transparent;color:var(--mu);border:1px solid var(--bd);text-decoration:line-through}
+    button.chip.on{background:var(--ac);color:#fff;border-color:var(--ac);text-decoration:none}
+    .tot{display:flex;justify-content:space-between;font-weight:700;font-size:17px;border-top:1px dashed var(--bd);margin-top:10px;padding-top:10px}
+    .ph{display:flex;align-items:center;gap:10px;cursor:pointer}
+    .av{width:38px;height:38px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+    .ph .nm{flex:1;min-width:0}
+    .sm{color:var(--mu);font-size:13px}
+    .st{font-weight:700;font-size:13px;padding:5px 10px;border-radius:999px;white-space:nowrap}
+    .st.due{background:var(--badb);color:var(--bad)}
+    .st.ok{background:var(--okb);color:var(--ok)}
+    .due{color:var(--bad)}.ok{color:var(--ok)}
+    .card.obj{border:2px solid var(--bad)}
+    .red{color:var(--bad);font-size:13px}
+    .hd{display:flex;justify-content:space-between;font-weight:600}
+    .pn.sub{margin-top:8px}
   </style>
 </head>
 <body>
-  <h1>Room Split</h1>
-  <p>Under each bill, tap a name to remove that person from it.</p>
+<div class="top"><div class="top-in">
+  <div class="r"><h1>🏠 Room Split</h1><input id="month" type="month"></div>
+  <div class="stats">
+    <div class="stat"><small>Total bill</small><b id="hdTotal">₹0</b></div>
+    <div class="stat"><small>Collected</small><b id="hdPaid">₹0</b></div>
+    <div class="stat"><small>Pending</small><b id="hdDue">₹0</b></div>
+  </div>
+</div></div>
 
-  Month: <input id="month" type="month"><br><br>
+<main>
+  <h2>💸 Expenses</h2>
+  <div class="card">
+    <div class="row"><span class="em">🏠</span><label>Room rent</label><input id="rent" type="number" inputmode="decimal" placeholder="0"><button class="pill" id="sb_rent" onclick="tg('c_rent')">👥 All 6</button></div>
+    <div class="chips pn" id="c_rent"></div>
+    <div class="row"><span class="em">⚡</span><label>Power bill</label><input id="power" type="number" inputmode="decimal" placeholder="0"><button class="pill" id="sb_power" onclick="tg('c_power')">👥 All 6</button></div>
+    <div class="chips pn" id="c_power"></div>
+    <div class="row"><span class="em">🌐</span><label>Net bill</label><input id="net" type="number" inputmode="decimal" placeholder="0"><button class="pill" id="sb_net" onclick="tg('c_net')">👥 All 6</button></div>
+    <div class="chips pn" id="c_net"></div>
+    <div id="others"></div>
+    <div class="tot"><span>Total</span><span id="total">₹0</span></div>
+  </div>
+  <div class="sm" style="margin:-4px 0 8px 4px">Tap 👥 on any bill to choose who pays it.</div>
 
-  Rent: <input id="rent" type="number"><br>
-  <div id="c_rent"></div><br>
-  Power: <input id="power" type="number"><br>
-  <div id="c_power"></div><br>
-  Net: <input id="net" type="number"><br>
-  <div id="c_net"></div><br>
+  <button class="g big" onclick="tg('addf')">➕ Add other expense (water, gas…)</button>
+  <div class="card pn sub" id="addf">
+    <div class="row">
+      <input class="t" id="otherName" placeholder="Name (e.g. Water)">
+      <input id="otherAmt" type="number" inputmode="decimal" placeholder="₹">
+    </div>
+    <button class="big" id="addOther">Add expense</button>
+  </div>
 
-  <h3>Other expenses</h3>
-  <div id="others"></div>
-  <input id="otherName" placeholder="Name (e.g. Water)">
-  <input id="otherAmt" type="number" placeholder="Amount">
-  <button id="addOther">Add</button>
-
-  <h3>Total: <span id="total">0</span></h3>
-
-  <h2>Who paid</h2>
+  <h2>👥 Who paid (tap a name)</h2>
   <div id="objbox"></div>
   <div id="people"></div>
 
-  <!-- NEW: share buttons -->
-  <h2>Share with the group</h2>
-  <button id="copyBtn">Copy summary</button>
-  <button id="waBtn">Send on WhatsApp</button>
-  <span id="msg"></span>
+  <h2>📤 Share with the group</h2>
+  <div class="row">
+    <button class="big" id="copyBtn">📋 Copy summary</button>
+    <button class="big" id="waBtn" style="background:#22c55e">💬 WhatsApp</button>
+  </div>
+  <div class="sm" id="msg">Data is saved on this phone only.</div>
 
-  <h2>Last 6 months (click a month to open)</h2>
-  <div id="history"></div>
+  <h2></h2>
+  <button class="g big" onclick="tg('history')">📅 Last 6 months ▾</button>
+  <div class="pn sub" id="history"></div>
+</main>
 
-  <script>
-    const NAMES = ["Badra", "Prem", "Santhosh", "Sai", "Prasad", "Giri"];
-    const $ = id => document.getElementById(id);
-    const num = v => parseFloat(v) || 0;
-    const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+<script>
+  const NAMES = ["Badra", "Prem", "Santhosh", "Sai", "Prasad", "Giri"];
+  const COLORS = ["#f97316", "#8b5cf6", "#ec4899", "#10b981", "#0ea5e9", "#f59e0b"];
+  const $ = id => document.getElementById(id);
+  const num = v => parseFloat(v) || 0;
+  const fmt = n => "₹" + (Math.round(n * 100) / 100).toLocaleString("en-IN");
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-    $("people").innerHTML = NAMES.map((n, i) => `
-      <div class="person" id="card${i}">
-        <b>${n}</b><span class="red" id="flag${i}"></span>
-        Share: <span id="share${i}">0</span><br>
-        Paid: <input id="paid${i}" type="number">
-        Balance: <span id="bal${i}">0</span><br>
-        <input id="obj${i}" placeholder="Objection? (e.g. power bill too high)" style="width:90%;margin-top:6px">
+  // which panels are open
+  const openPanels = new Set();
+  function applyOpen() {
+    document.querySelectorAll(".pn").forEach(p => p.classList.toggle("open", openPanels.has(p.id)));
+  }
+  function tg(id) {
+    if (openPanels.has(id)) openPanels.delete(id); else openPanels.add(id);
+    applyOpen();
+  }
+
+  // One card for each person (tap the top to open)
+  $("people").innerHTML = NAMES.map((n, i) => `
+    <div class="card" id="card${i}">
+      <div class="ph" onclick="tg('pp${i}')">
+        <div class="av" style="background:${COLORS[i]}">${n[0]}</div>
+        <div class="nm"><b>${n}</b><span class="red" id="flag${i}"></span>
+          <div class="sm">Share <span id="share${i}">₹0</span></div></div>
+        <span class="st ok" id="bal${i}">Paid ✓</span>
       </div>
+      <div class="pn sub" id="pp${i}">
+        <div class="row"><label>Paid so far</label>
+          <input id="paid${i}" type="number" inputmode="decimal" placeholder="0">
+          <button class="pill" onclick="fullPay(${i})">Full</button></div>
+        <button class="g pill" onclick="tg('op${i}')">🔴 Raise objection</button>
+        <div class="pn sub" id="op${i}"><input class="t" style="width:100%" id="obj${i}" placeholder="e.g. power bill too high"></div>
+      </div>
+    </div>
+  `).join("");
+
+  function fullPay(i) {
+    const { share } = compute(current());
+    $("paid" + i).value = Math.round(share[NAMES[i]] * 100) / 100;
+    calc(); save();
+  }
+
+  let ex = { rent: [], power: [], net: [] };
+  let others = [];
+
+  const splitLabel = list => list.length
+    ? `👥 ${NAMES.length - list.length} of ${NAMES.length}`
+    : `👥 All ${NAMES.length}`;
+
+  function drawChips(el, list) {
+    el.innerHTML = NAMES.map(n =>
+      `<button class="chip ${list.includes(n) ? "" : "on"}" data-n="${n}">${n}</button>`
+    ).join("");
+    el.querySelectorAll("button").forEach(b => {
+      b.onclick = () => {
+        const n = b.dataset.n;
+        const pos = list.indexOf(n);
+        if (pos >= 0) list.splice(pos, 1);
+        else if (list.length < NAMES.length - 1) list.push(n);
+        refresh();
+      };
+    });
+  }
+
+  function drawAll() {
+    ["rent", "power", "net"].forEach(k => {
+      drawChips($("c_" + k), ex[k]);
+      $("sb_" + k).textContent = splitLabel(ex[k]);
+    });
+    $("others").innerHTML = others.map((o, i) => `
+      <div class="row"><span class="em">🧾</span><label>${esc(o.name)}</label><b>${fmt(o.amt)}</b>
+        <button class="pill" onclick="tg('oc${i}')">${splitLabel(o.ex)}</button>
+        <button class="x" onclick="removeOther(${i})">✕</button></div>
+      <div class="chips pn" id="oc${i}"></div>
     `).join("");
+    others.forEach((o, i) => drawChips($("oc" + i), o.ex));
+    applyOpen();
+  }
 
-    let ex = { rent: [], power: [], net: [] };
-    let others = [];
+  function refresh() { drawAll(); calc(); save(); }
 
-    function drawChips(el, list) {
-      el.innerHTML = NAMES.map(n =>
-        `<button class="chip ${list.includes(n) ? "off" : ""}" data-n="${n}">${n}</button>`
-      ).join("");
-      el.querySelectorAll("button").forEach(b => {
-        b.onclick = () => {
-          const n = b.dataset.n;
-          const pos = list.indexOf(n);
-          if (pos >= 0) list.splice(pos, 1);
-          else if (list.length < NAMES.length - 1) list.push(n);
-          refresh();
-        };
-      });
+  function removeOther(i) {
+    others.splice(i, 1);
+    [...openPanels].forEach(x => { if (x.startsWith("oc")) openPanels.delete(x); });
+    refresh();
+  }
+
+  $("addOther").onclick = () => {
+    const name = $("otherName").value.trim();
+    const amt = num($("otherAmt").value);
+    if (!name || !amt) return;
+    others.push({ name: name, amt: amt, ex: [] });
+    $("otherName").value = "";
+    $("otherAmt").value = "";
+    refresh();
+  };
+
+  function current() {
+    const d = {};
+    ids.forEach(id => d[id] = $(id).value);
+    d.others = others;
+    d.ex = ex;
+    d.obj = {};
+    NAMES.forEach((n, i) => d.obj[n] = $("obj" + i).value);
+    return d;
+  }
+
+  function compute(d) {
+    const e = d.ex || {};
+    const items = [
+      [num(d.rent), e.rent || []],
+      [num(d.power), e.power || []],
+      [num(d.net), e.net || []],
+      ...(d.others || []).map(o => [o.amt, o.ex || []])
+    ];
+    const share = {};
+    NAMES.forEach(n => share[n] = 0);
+    let total = 0;
+    items.forEach(([amt, left]) => {
+      total += amt;
+      const paying = NAMES.filter(n => !left.includes(n));
+      paying.forEach(n => share[n] += amt / paying.length);
+    });
+    return { total, share };
+  }
+
+  function flags() {
+    const list = [];
+    NAMES.forEach((n, i) => {
+      const t = $("obj" + i).value.trim();
+      $("card" + i).classList.toggle("obj", !!t);
+      $("flag" + i).textContent = t ? "  🔴 Objection" : "";
+      if (t) list.push(`<b>${n}</b>: ${esc(t)}`);
+    });
+    $("objbox").innerHTML = list.length
+      ? `<div class="card obj"><div class="red"><b>🔴 Objections this month</b></div><div class="red">${list.join("<br>")}</div></div>`
+      : "";
+  }
+
+  function calc() {
+    const { total, share } = compute(current());
+    $("total").textContent = fmt(total);
+    let paidAll = 0, dueAll = 0;
+    NAMES.forEach((n, i) => {
+      const paid = num($("paid" + i).value);
+      const bal = share[n] - paid;
+      paidAll += paid;
+      if (bal > 0.005) dueAll += bal;
+      $("share" + i).textContent = fmt(share[n]);
+      const b = $("bal" + i);
+      b.textContent = bal > 0.005 ? "Due " + fmt(bal) : bal < -0.005 ? "Extra " + fmt(-bal) : "Paid ✓";
+      b.className = "st " + (bal > 0.005 ? "due" : "ok");
+    });
+    $("hdTotal").textContent = fmt(total);
+    $("hdPaid").textContent = fmt(paidAll);
+    $("hdDue").textContent = fmt(dueAll);
+    flags();
+  }
+
+  function summary() {
+    const d = current();
+    const { total, share } = compute(d);
+    let s = `*Room bill - ${$("month").value}*\n`;
+    const items = [
+      ["Rent", d.rent, d.ex.rent],
+      ["Power", d.power, d.ex.power],
+      ["Net", d.net, d.ex.net],
+      ...d.others.map(o => [o.name, o.amt, o.ex])
+    ];
+    items.forEach(([label, amt, left]) => {
+      if (num(amt) > 0) {
+        const note = left.length ? " (not for " + left.join(", ") + ")" : "";
+        s += `${label}: ${num(amt)}${note}\n`;
+      }
+    });
+    s += `*Total: ${total}*\n\n`;
+    NAMES.forEach((n, i) => {
+      const bal = share[n] - num(d["paid" + i]);
+      const status = bal > 0.005 ? "Due " + bal.toFixed(2) : "Paid ✓";
+      s += `${n}: share ${share[n].toFixed(2)} - ${status}\n`;
+    });
+    NAMES.forEach(n => {
+      const o = (d.obj[n] || "").trim();
+      if (o) s += `\n🔴 ${n} objects: ${o}`;
+    });
+    return s;
+  }
+
+  $("copyBtn").onclick = async () => {
+    const text = summary();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const t = document.createElement("textarea");
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand("copy");
+      t.remove();
     }
+    $("msg").textContent = "Copied! Now paste it in WhatsApp.";
+  };
 
-    function drawAll() {
-      ["rent", "power", "net"].forEach(k => drawChips($("c_" + k), ex[k]));
-      $("others").innerHTML = others.map((o, i) => `
-        <p>${o.name}: ${o.amt} <button onclick="removeOther(${i})">✕</button></p>
-        <div id="oc${i}"></div>
-      `).join("");
-      others.forEach((o, i) => drawChips($("oc" + i), o.ex));
-    }
+  $("waBtn").onclick = () => {
+    window.open("https://wa.me/?text=" + encodeURIComponent(summary()), "_blank");
+  };
 
-    function refresh() { drawAll(); calc(); save(); }
+  function drawHistory() {
+    const keys = Object.keys(db).sort().reverse()
+      .filter(k => compute(db[k]).total > 0)
+      .slice(0, 6);
 
-    function removeOther(i) {
-      others.splice(i, 1);
-      refresh();
-    }
-
-    $("addOther").onclick = () => {
-      const name = $("otherName").value.trim();
-      const amt = num($("otherAmt").value);
-      if (!name || !amt) return;
-      others.push({ name: name, amt: amt, ex: [] });
-      $("otherName").value = "";
-      $("otherAmt").value = "";
-      refresh();
-    };
-
-    function current() {
-      const d = {};
-      ids.forEach(id => d[id] = $(id).value);
-      d.others = others;
-      d.ex = ex;
-      d.obj = {};
-      NAMES.forEach((n, i) => d.obj[n] = $("obj" + i).value);
-      return d;
-    }
-
-    function compute(d) {
-      const e = d.ex || {};
-      const items = [
-        [num(d.rent), e.rent || []],
-        [num(d.power), e.power || []],
-        [num(d.net), e.net || []],
-        ...(d.others || []).map(o => [o.amt, o.ex || []])
-      ];
-      const share = {};
-      NAMES.forEach(n => share[n] = 0);
-      let total = 0;
-      items.forEach(([amt, left]) => {
-        total += amt;
-        const paying = NAMES.filter(n => !left.includes(n));
-        paying.forEach(n => share[n] += amt / paying.length);
-      });
-      return { total, share };
-    }
-
-    function flags() {
-      const list = [];
-      NAMES.forEach((n, i) => {
-        const t = $("obj" + i).value.trim();
-        $("card" + i).classList.toggle("obj", !!t);
-        $("flag" + i).textContent = t ? "  🔴 Objection" : "";
-        if (t) list.push(`<b>${n}</b>: ${esc(t)}`);
-      });
-      $("objbox").innerHTML = list.length
-        ? `<div class="person obj red"><b>🔴 Objections this month</b><br>${list.join("<br>")}</div>`
-        : "";
-    }
-
-    function calc() {
-      const { total, share } = compute(current());
-      $("total").textContent = total;
-      NAMES.forEach((n, i) => {
-        $("share" + i).textContent = share[n].toFixed(2);
-        $("bal" + i).textContent = (share[n] - num($("paid" + i).value)).toFixed(2);
-      });
-      flags();
-    }
-
-    // ---- NEW: build the message text ----
-    function summary() {
-      const d = current();
+    $("history").innerHTML = keys.length ? keys.map(k => {
+      const d = db[k];
       const { total, share } = compute(d);
-      let s = `*Room bill - ${$("month").value}*\n`;
-
-      const items = [
-        ["Rent", d.rent, d.ex.rent],
-        ["Power", d.power, d.ex.power],
-        ["Net", d.net, d.ex.net],
-        ...d.others.map(o => [o.name, o.amt, o.ex])
-      ];
-      items.forEach(([label, amt, left]) => {
-        if (num(amt) > 0) {
-          const note = left.length ? " (not for " + left.join(", ") + ")" : "";
-          s += `${label}: ${num(amt)}${note}\n`;
-        }
-      });
-      s += `*Total: ${total}*\n\n`;
-
+      const due = [];
       NAMES.forEach((n, i) => {
         const bal = share[n] - num(d["paid" + i]);
-        const status = bal > 0.005 ? "Due " + bal.toFixed(2) : "Paid ✓";
-        s += `${n}: share ${share[n].toFixed(2)} - ${status}\n`;
+        if (bal > 0.005) due.push(`${n} ${fmt(bal)}`);
       });
+      const status = due.length
+        ? `<span class="due">Pending: ${due.join(", ")}</span>`
+        : `<span class="ok">All paid ✓</span>`;
+      const ob = NAMES.filter(n => ((d.obj || {})[n] || "").trim());
+      const objText = ob.length ? ` <span class="red">🔴 Objection: ${ob.join(", ")}</span>` : "";
+      return `<div class="card" style="cursor:pointer" onclick="openMonth('${k}')">
+        <div class="hd"><span>${k}</span><span>${fmt(total)}</span></div>
+        <div class="sm">${status}${objText}</div></div>`;
+    }).join("") : `<div class="sm">No history yet. Enter this month’s bills and it will appear here.</div>`;
+  }
 
-      NAMES.forEach(n => {
-        const o = (d.obj[n] || "").trim();
-        if (o) s += `\n🔴 ${n} objects: ${o}`;
-      });
-      return s;
-    }
-
-    // ---- NEW: copy button ----
-    $("copyBtn").onclick = async () => {
-      const text = summary();
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch (e) {
-        // backup method for older browsers
-        const t = document.createElement("textarea");
-        t.value = text;
-        document.body.appendChild(t);
-        t.select();
-        document.execCommand("copy");
-        t.remove();
-      }
-      $("msg").textContent = " Copied! Now paste it in WhatsApp.";
-    };
-
-    // ---- NEW: send on WhatsApp button ----
-    $("waBtn").onclick = () => {
-      window.open("https://wa.me/?text=" + encodeURIComponent(summary()), "_blank");
-    };
-
-    function drawHistory() {
-      const keys = Object.keys(db).sort().reverse()
-        .filter(k => compute(db[k]).total > 0)
-        .slice(0, 6);
-
-      $("history").innerHTML = keys.length ? keys.map(k => {
-        const d = db[k];
-        const { total, share } = compute(d);
-
-        const due = [];
-        NAMES.forEach((n, i) => {
-          const bal = share[n] - num(d["paid" + i]);
-          if (bal > 0.005) due.push(`${n} ${bal.toFixed(2)}`);
-        });
-
-        const status = due.length
-          ? `<span class="due">Pending: ${due.join(", ")}</span>`
-          : `<span class="ok">All paid ✓</span>`;
-
-        const ob = NAMES.filter(n => ((d.obj || {})[n] || "").trim());
-        const objText = ob.length ? ` <span class="red">🔴 Objection: ${ob.join(", ")}</span>` : "";
-
-        return `<p><button onclick="openMonth('${k}')">${k}</button> Total: ${total} - ${status}${objText}</p>`;
-      }).join("") : "<p>No history yet. Enter this month's bills and it will appear here.</p>";
-    }
-
-    function openMonth(k) {
-      $("month").value = k;
-      load();
-      window.scrollTo(0, 0);
-    }
-
-    const ids = ["rent", "power", "net", ...NAMES.map((n, i) => "paid" + i)];
-    let db = JSON.parse(localStorage.getItem("roomsplit2") || "{}");
-
-    const now = new Date();
-    $("month").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
-
-    function save() {
-      db[$("month").value] = current();
-      localStorage.setItem("roomsplit2", JSON.stringify(db));
-      drawHistory();
-    }
-
-    function load() {
-      const data = db[$("month").value] || {};
-      ids.forEach(id => $(id).value = data[id] || "");
-      NAMES.forEach((n, i) => $("obj" + i).value = (data.obj || {})[n] || "");
-      others = (data.others || []).map(o => ({ ...o, ex: o.ex || [] }));
-      ex = { rent: [], power: [], net: [], ...(data.ex || {}) };
-      drawAll();
-      calc();
-      drawHistory();
-    }
-
-    document.addEventListener("input", (e) => {
-      if (e.target.id === "month") return;
-      calc();
-      save();
-    });
-    $("month").onchange = load;
+  function openMonth(k) {
+    $("month").value = k;
     load();
-  </script>
+    window.scrollTo(0, 0);
+  }
+
+  const ids = ["rent", "power", "net", ...NAMES.map((n, i) => "paid" + i)];
+  let db = JSON.parse(localStorage.getItem("roomsplit2") || "{}");
+
+  const now = new Date();
+  $("month").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+
+  function save() {
+    db[$("month").value] = current();
+    localStorage.setItem("roomsplit2", JSON.stringify(db));
+    drawHistory();
+  }
+
+  function load() {
+    const data = db[$("month").value] || {};
+    ids.forEach(id => $(id).value = data[id] || "");
+    NAMES.forEach((n, i) => {
+      const t = (data.obj || {})[n] || "";
+      $("obj" + i).value = t;
+      if (t.trim()) openPanels.add("op" + i); else openPanels.delete("op" + i);
+    });
+    others = (data.others || []).map(o => ({ ...o, ex: o.ex || [] }));
+    ex = { rent: [], power: [], net: [], ...(data.ex || {}) };
+    drawAll();
+    calc();
+    drawHistory();
+  }
+
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "month") return;
+    calc();
+    save();
+  });
+  $("month").onchange = load;
+  load();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+  }
+</script>
 </body>
 </html>
