@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Room Split</title>
+  <style>
+    .chip { border-radius: 12px; border: 1px solid #888; background: #d9f2ee; margin: 2px; padding: 2px 8px; cursor: pointer; }
+    .chip.off { text-decoration: line-through; background: #eee; color: #999; }
+    .due { color: red; }
+    .ok { color: green; }
+    .person { border: 1px solid #ccc; border-radius: 8px; padding: 8px; margin: 8px 0; }
+    .person.obj { border: 2px solid red; }
+    .red { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Room Split</h1>
+  <p>Under each bill, tap a name to remove that person from it.</p>
+
+  Month: <input id="month" type="month"><br><br>
+
+  Rent: <input id="rent" type="number"><br>
+  <div id="c_rent"></div><br>
+  Power: <input id="power" type="number"><br>
+  <div id="c_power"></div><br>
+  Net: <input id="net" type="number"><br>
+  <div id="c_net"></div><br>
+
+  <h3>Other expenses</h3>
+  <div id="others"></div>
+  <input id="otherName" placeholder="Name (e.g. Water)">
+  <input id="otherAmt" type="number" placeholder="Amount">
+  <button id="addOther">Add</button>
+
+  <h3>Total: <span id="total">0</span></h3>
+
+  <h2>Who paid</h2>
+  <div id="objbox"></div>
+  <div id="people"></div>
+
+  <!-- NEW: share buttons -->
+  <h2>Share with the group</h2>
+  <button id="copyBtn">Copy summary</button>
+  <button id="waBtn">Send on WhatsApp</button>
+  <span id="msg"></span>
+
+  <h2>Last 6 months (click a month to open)</h2>
+  <div id="history"></div>
+
+  <script>
+    const NAMES = ["Badra", "Prem", "Santhosh", "Sai", "Prasad", "Giri"];
+    const $ = id => document.getElementById(id);
+    const num = v => parseFloat(v) || 0;
+    const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+    $("people").innerHTML = NAMES.map((n, i) => `
+      <div class="person" id="card${i}">
+        <b>${n}</b><span class="red" id="flag${i}"></span>
+        Share: <span id="share${i}">0</span><br>
+        Paid: <input id="paid${i}" type="number">
+        Balance: <span id="bal${i}">0</span><br>
+        <input id="obj${i}" placeholder="Objection? (e.g. power bill too high)" style="width:90%;margin-top:6px">
+      </div>
+    `).join("");
+
+    let ex = { rent: [], power: [], net: [] };
+    let others = [];
+
+    function drawChips(el, list) {
+      el.innerHTML = NAMES.map(n =>
+        `<button class="chip ${list.includes(n) ? "off" : ""}" data-n="${n}">${n}</button>`
+      ).join("");
+      el.querySelectorAll("button").forEach(b => {
+        b.onclick = () => {
+          const n = b.dataset.n;
+          const pos = list.indexOf(n);
+          if (pos >= 0) list.splice(pos, 1);
+          else if (list.length < NAMES.length - 1) list.push(n);
+          refresh();
+        };
+      });
+    }
+
+    function drawAll() {
+      ["rent", "power", "net"].forEach(k => drawChips($("c_" + k), ex[k]));
+      $("others").innerHTML = others.map((o, i) => `
+        <p>${o.name}: ${o.amt} <button onclick="removeOther(${i})">✕</button></p>
+        <div id="oc${i}"></div>
+      `).join("");
+      others.forEach((o, i) => drawChips($("oc" + i), o.ex));
+    }
+
+    function refresh() { drawAll(); calc(); save(); }
+
+    function removeOther(i) {
+      others.splice(i, 1);
+      refresh();
+    }
+
+    $("addOther").onclick = () => {
+      const name = $("otherName").value.trim();
+      const amt = num($("otherAmt").value);
+      if (!name || !amt) return;
+      others.push({ name: name, amt: amt, ex: [] });
+      $("otherName").value = "";
+      $("otherAmt").value = "";
+      refresh();
+    };
+
+    function current() {
+      const d = {};
+      ids.forEach(id => d[id] = $(id).value);
+      d.others = others;
+      d.ex = ex;
+      d.obj = {};
+      NAMES.forEach((n, i) => d.obj[n] = $("obj" + i).value);
+      return d;
+    }
+
+    function compute(d) {
+      const e = d.ex || {};
+      const items = [
+        [num(d.rent), e.rent || []],
+        [num(d.power), e.power || []],
+        [num(d.net), e.net || []],
+        ...(d.others || []).map(o => [o.amt, o.ex || []])
+      ];
+      const share = {};
+      NAMES.forEach(n => share[n] = 0);
+      let total = 0;
+      items.forEach(([amt, left]) => {
+        total += amt;
+        const paying = NAMES.filter(n => !left.includes(n));
+        paying.forEach(n => share[n] += amt / paying.length);
+      });
+      return { total, share };
+    }
+
+    function flags() {
+      const list = [];
+      NAMES.forEach((n, i) => {
+        const t = $("obj" + i).value.trim();
+        $("card" + i).classList.toggle("obj", !!t);
+        $("flag" + i).textContent = t ? "  🔴 Objection" : "";
+        if (t) list.push(`<b>${n}</b>: ${esc(t)}`);
+      });
+      $("objbox").innerHTML = list.length
+        ? `<div class="person obj red"><b>🔴 Objections this month</b><br>${list.join("<br>")}</div>`
+        : "";
+    }
+
+    function calc() {
+      const { total, share } = compute(current());
+      $("total").textContent = total;
+      NAMES.forEach((n, i) => {
+        $("share" + i).textContent = share[n].toFixed(2);
+        $("bal" + i).textContent = (share[n] - num($("paid" + i).value)).toFixed(2);
+      });
+      flags();
+    }
+
+    // ---- NEW: build the message text ----
+    function summary() {
+      const d = current();
+      const { total, share } = compute(d);
+      let s = `*Room bill - ${$("month").value}*\n`;
+
+      const items = [
+        ["Rent", d.rent, d.ex.rent],
+        ["Power", d.power, d.ex.power],
+        ["Net", d.net, d.ex.net],
+        ...d.others.map(o => [o.name, o.amt, o.ex])
+      ];
+      items.forEach(([label, amt, left]) => {
+        if (num(amt) > 0) {
+          const note = left.length ? " (not for " + left.join(", ") + ")" : "";
+          s += `${label}: ${num(amt)}${note}\n`;
+        }
+      });
+      s += `*Total: ${total}*\n\n`;
+
+      NAMES.forEach((n, i) => {
+        const bal = share[n] - num(d["paid" + i]);
+        const status = bal > 0.005 ? "Due " + bal.toFixed(2) : "Paid ✓";
+        s += `${n}: share ${share[n].toFixed(2)} - ${status}\n`;
+      });
+
+      NAMES.forEach(n => {
+        const o = (d.obj[n] || "").trim();
+        if (o) s += `\n🔴 ${n} objects: ${o}`;
+      });
+      return s;
+    }
+
+    // ---- NEW: copy button ----
+    $("copyBtn").onclick = async () => {
+      const text = summary();
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        // backup method for older browsers
+        const t = document.createElement("textarea");
+        t.value = text;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        t.remove();
+      }
+      $("msg").textContent = " Copied! Now paste it in WhatsApp.";
+    };
+
+    // ---- NEW: send on WhatsApp button ----
+    $("waBtn").onclick = () => {
+      window.open("https://wa.me/?text=" + encodeURIComponent(summary()), "_blank");
+    };
+
+    function drawHistory() {
+      const keys = Object.keys(db).sort().reverse()
+        .filter(k => compute(db[k]).total > 0)
+        .slice(0, 6);
+
+      $("history").innerHTML = keys.length ? keys.map(k => {
+        const d = db[k];
+        const { total, share } = compute(d);
+
+        const due = [];
+        NAMES.forEach((n, i) => {
+          const bal = share[n] - num(d["paid" + i]);
+          if (bal > 0.005) due.push(`${n} ${bal.toFixed(2)}`);
+        });
+
+        const status = due.length
+          ? `<span class="due">Pending: ${due.join(", ")}</span>`
+          : `<span class="ok">All paid ✓</span>`;
+
+        const ob = NAMES.filter(n => ((d.obj || {})[n] || "").trim());
+        const objText = ob.length ? ` <span class="red">🔴 Objection: ${ob.join(", ")}</span>` : "";
+
+        return `<p><button onclick="openMonth('${k}')">${k}</button> Total: ${total} - ${status}${objText}</p>`;
+      }).join("") : "<p>No history yet. Enter this month's bills and it will appear here.</p>";
+    }
+
+    function openMonth(k) {
+      $("month").value = k;
+      load();
+      window.scrollTo(0, 0);
+    }
+
+    const ids = ["rent", "power", "net", ...NAMES.map((n, i) => "paid" + i)];
+    let db = JSON.parse(localStorage.getItem("roomsplit2") || "{}");
+
+    const now = new Date();
+    $("month").value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+
+    function save() {
+      db[$("month").value] = current();
+      localStorage.setItem("roomsplit2", JSON.stringify(db));
+      drawHistory();
+    }
+
+    function load() {
+      const data = db[$("month").value] || {};
+      ids.forEach(id => $(id).value = data[id] || "");
+      NAMES.forEach((n, i) => $("obj" + i).value = (data.obj || {})[n] || "");
+      others = (data.others || []).map(o => ({ ...o, ex: o.ex || [] }));
+      ex = { rent: [], power: [], net: [], ...(data.ex || {}) };
+      drawAll();
+      calc();
+      drawHistory();
+    }
+
+    document.addEventListener("input", (e) => {
+      if (e.target.id === "month") return;
+      calc();
+      save();
+    });
+    $("month").onchange = load;
+    load();
+  </script>
+</body>
+</html>
